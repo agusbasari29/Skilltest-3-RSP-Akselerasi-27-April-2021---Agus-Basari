@@ -4,27 +4,32 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/entity"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/helper"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/request"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/response"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/services"
+	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/tasks"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 )
 
 type eventHandler struct {
 	eventServices       services.EventServices
 	jwtService          services.JWTServices
 	transactionServices services.TransactionServices
+	userServices        services.UserServices
 }
 
-func NewEventHandler(eventServices services.EventServices, jwtService services.JWTServices, transactionServices services.TransactionServices) *eventHandler {
-	return &eventHandler{eventServices, jwtService, transactionServices}
+func NewEventHandler(eventServices services.EventServices, jwtService services.JWTServices, transactionServices services.TransactionServices, userServices services.UserServices) *eventHandler {
+	return &eventHandler{eventServices, jwtService, transactionServices, userServices}
 }
 
 func (h *eventHandler) CreateEvent(ctx *gin.Context) {
@@ -261,8 +266,6 @@ func (h *eventHandler) GetEventDetail(ctx *gin.Context) {
 	role := fmt.Sprintf("%v", claims["role"])
 	if role == string(entity.Participant) {
 		eventId, _ := strconv.Atoi(ctx.Param("id"))
-		// e := entity.{ID: req.ID}
-		// id := strconv.Itoa(int(e.ID))
 		var event *entity.Event
 		if event == nil {
 			event, err := h.eventServices.GetEventByID(uint(eventId))
@@ -335,7 +338,17 @@ func (h *eventHandler) MakeEventPurchase(ctx *gin.Context) {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, response)
 			return
 		}
-		//TODO notif
+
+		var u request.RequestUserProfile
+		u.ID = uint(id)
+		getUser, _ := h.userServices.Profile(u)
+
+		r := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR_PORT")}
+		client := asynq.NewClient(r)
+		t := tasks.NewPaymentEmailTask(getUser.Email, createTrx.Amount, getUser.Fullname)
+		client.Enqueue(t)
+		client.Enqueue(t, asynq.ProcessIn(24*time.Hour))
+
 		formatter := response.ResponseTransactionFormatter(createTrx)
 		response := helper.ResponseFormatter(http.StatusOK, "success", "Successfully create new transaction.", formatter)
 		ctx.JSON(http.StatusOK, response)

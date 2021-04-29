@@ -8,6 +8,7 @@ import (
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/database/seeders"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/entity"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/routes"
+	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/worker"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -26,5 +27,6 @@ func main() {
 	})
 	routes.DefineAuthApiRoutes(g)
 	routes.DefineSecureApiRoutes(g)
+	worker.Workers()
 	g.Run(os.Getenv("SERVER_PORT"))
 }

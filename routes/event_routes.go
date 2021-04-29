@@ -15,10 +15,12 @@ func (r EventRoutes) Route() []helper.Route {
 	db := database.SetupDatabaseConnection()
 	eventRepo := repository.NewEventRepository(db)
 	trxRepo := repository.NewTransactionRepository(db)
+	userRepo := repository.NewUserRepository(db)
 	eventServices := services.NewEventServices(eventRepo)
 	jwtServices := services.NewJWTService()
 	trxServices := services.NewTransactionServices(trxRepo)
-	eventHandler := handler.NewEventHandler(eventServices, jwtServices, trxServices)
+	userServices := services.NewUserServices(userRepo)
+	eventHandler := handler.NewEventHandler(eventServices, jwtServices, trxServices, userServices)
 
 	return []helper.Route{
 		{

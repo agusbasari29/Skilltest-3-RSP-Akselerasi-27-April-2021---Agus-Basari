@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -11,17 +12,20 @@ import (
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/helper"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/request"
 	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/services"
+	"github.com/agusbasari29/Skilltest-RSP-Akselerasi-2-Backend-Agus-Basari/tasks"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 )
 
 type participantHandler struct {
-	trxServices services.TransactionServices
-	jwtService  services.JWTServices
+	trxServices  services.TransactionServices
+	userServices services.UserServices
+	jwtService   services.JWTServices
 }
 
-func NewParticipantHandler(trxServices services.TransactionServices, jwtService services.JWTServices) *participantHandler {
-	return &participantHandler{trxServices, jwtService}
+func NewParticipantHandler(trxServices services.TransactionServices, userServices services.UserServices, jwtService services.JWTServices) *participantHandler {
+	return &participantHandler{trxServices, userServices, jwtService}
 }
 
 func (h *participantHandler) ChangeStatusPaymentParticipant(ctx *gin.Context) {
@@ -57,7 +61,16 @@ func (h *participantHandler) ChangeStatusPaymentParticipant(ctx *gin.Context) {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, response)
 			return
 		}
-		//TODO Send Email Link
+
+		var u request.RequestUserProfile
+		u.ID = uint(update.ParticipantId)
+		getUser, _ := h.userServices.Profile(u)
+
+		r := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR_PORT")}
+		client := asynq.NewClient(r)
+		t := tasks.NewPaymentPassedEmailTask(getUser.Email, update.Amount, getUser.Fullname)
+		client.Enqueue(t)
+
 		response := helper.ResponseFormatter(http.StatusOK, "success", "Successfully create new transaction.", update)
 		ctx.JSON(http.StatusOK, response)
 	} else {

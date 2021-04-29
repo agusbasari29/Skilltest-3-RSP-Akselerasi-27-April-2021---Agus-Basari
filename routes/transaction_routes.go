@@ -16,7 +16,9 @@ func (r TransactionRoutes) Route() []helper.Route {
 	trxRepo := repository.NewTransactionRepository(db)
 	trxServices := services.NewTransactionServices(trxRepo)
 	jwtServices := services.NewJWTService()
-	participantHandler := handler.NewParticipantHandler(trxServices, jwtServices)
+	userRepo := repository.NewUserRepository(db)
+	userServices := services.NewUserServices(userRepo)
+	participantHandler := handler.NewParticipantHandler(trxServices, userServices, jwtServices)
 
 	return []helper.Route{
 		{
